@@ -53,7 +53,7 @@ public class MainViewController implements Initializable{
 		// TODO Auto-generated method stub
 		
 	}
-	
+	//Consumer added to method's argument so can be used by SellerController as well
 	private synchronized <T> void loadView(String absoluteName, Consumer<T> initializingAction) {
 		try {
 			FXMLLoader loader = new FXMLLoader(getClass().getResource(absoluteName));
