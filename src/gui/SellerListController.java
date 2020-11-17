@@ -2,9 +2,9 @@ package gui;
 
 import java.io.IOException;
 import java.net.URL;
+import java.util.Date;
 import java.util.Optional;
 import java.util.ResourceBundle;
-
 
 import application.Main;
 import db.DbIntegrityException;
@@ -30,98 +30,105 @@ import javafx.scene.layout.Pane;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import model.entities.Department;
+import model.entities.Seller;
 import model.services.DepartmentService;
+import model.services.SellerService;
 
-public class DepartmentListController implements Initializable, DataChangeListener {
+public class SellerListController implements Initializable, DataChangeListener{
 
-	private DepartmentService service;
+	private SellerService service;
+	
+	@FXML
+	private Button newButton;
+	
+	@FXML
+	private TableView<Seller> tableViewSeller;
+	
+	@FXML
+	private TableColumn<Seller, Integer> tableColumnId;
+	
+	@FXML
+	private TableColumn<Seller,String> tableColumnName;
+	
+	@FXML
+	private TableColumn<Seller,String> tableColumnEmail;
+	
+	@FXML
+	
+	//works as String as well - for the table view
+	private TableColumn<Seller,Date> tableColumnBirthdate;
+	
+	@FXML
+	private TableColumn<Seller,Double> tableColumnSalary;
+	
+	@FXML
+	private TableColumn<Seller,Department> tableColumnDepartment;
+	
+	@FXML
+	private TableColumn<Seller, Seller> tableColumnEdit;
 
 	@FXML
-	private TableView<Department> tableViewDepartment;
-
+	private TableColumn<Seller, Seller> tableColumnRemove;
+	
+	private ObservableList<Seller> obsList;
+	
 	@FXML
-	private TableColumn<Department, Integer> tableColumnId;
-
-	@FXML
-	private TableColumn<Department, String> tableColumnName;
-
-	@FXML
-	private TableColumn<Department, Department> tableColumnEdit;
-
-	@FXML
-	private TableColumn<Department, Department> tableColumnRemove;
-
-	@FXML
-	private Button newBt;
-
-	// for table view visualization
-	private ObservableList<Department> obsList;
-
-	@FXML
-	public void onNewBtAction(ActionEvent event) {
+	public void onNewButtonAction(ActionEvent event) {
 		Stage stage = Utils.currentStage(event);
-		Department dep = new Department();
-		createDialogForm(dep, "/gui/DepartmentForm.fxml", stage);
+		Seller seller = new Seller();
+		createDialogForm(seller, "/gui/SellerForm.fxml", stage);
 	}
-
-	// dependency injection
-	public void setDepartmentService(DepartmentService service) {
-		this.service = service;
+	
+	public void setSellerService(SellerService service) {
+		this.service=service;
 	}
-
+	
 	@Override
 	public void initialize(URL url, ResourceBundle rb) {
 		initializeNodes();
-		/*
-		 * could be initialized here however it's better practice to add it directly to
-		 * the loadView method through a Consumer<T>
-		 * 
-		 * setDepartmentService(new DepartmentService()); updateTableView();
-		 */
+		
 	}
-
+	
 	private void initializeNodes() {
-		// JavaFX standard to initialize TableView
 		tableColumnId.setCellValueFactory(new PropertyValueFactory<>("id"));
 		tableColumnName.setCellValueFactory(new PropertyValueFactory<>("name"));
-		// Bind TableView Height with stage height
+		tableColumnEmail.setCellValueFactory(new PropertyValueFactory<>("email"));
+		tableColumnBirthdate.setCellValueFactory(new PropertyValueFactory<>("birthDate"));
+		Utils.formatTableColumnDate(tableColumnBirthdate, "dd/MM/yyyy");
+		tableColumnSalary.setCellValueFactory(new PropertyValueFactory<>("baseSalary"));
+		Utils.formatTableColumnDouble(tableColumnSalary, 2);
+		tableColumnDepartment.setCellValueFactory(new PropertyValueFactory<>("department"));
+
+		
 		Stage stage = (Stage) Main.getMainScene().getWindow();
-		tableViewDepartment.prefHeightProperty().bind(stage.heightProperty());
-
+		tableViewSeller.prefHeightProperty().bind(stage.heightProperty());
 	}
-
+	
 	public void updateTableView() {
-		// check if service was initialized since it's hard coded/no framework
-		if (service == null)
-			throw new IllegalStateException("Service not initialized");
-
-		// List<Department>list = service.findAll(); -- you can call it from the
-		// method's argument
-		// how to instantiate a obsList AND findAll returns a list
-		obsList = FXCollections.observableArrayList(service.findAll());
-		tableViewDepartment.setItems(obsList);
-
-		// would also work in initializeNodes
+		if(service==null)
+			throw new IllegalStateException("Service not instantiated.");
+		obsList=FXCollections.observableArrayList(service.findAll());
+		tableViewSeller.setItems(obsList);
 		initEditButtons();
 		initRemoveButtons();
-
 	}
-
-	private void createDialogForm(Department obj, String absoluteName, Stage parentStage) {
+	
+	private void createDialogForm(Seller obj, String absoluteName, Stage parentStage) {
 		try {
 			FXMLLoader loader = new FXMLLoader(getClass().getResource(absoluteName));
 			Pane pane = loader.load();
 
-			DepartmentFormController controller = loader.getController();// url passed DepForm.fxml-gets contr
-			controller.setDepartment(obj);
-			controller.setDepartmentService(new DepartmentService());
+			SellerFormController controller = loader.getController();// url passed DepForm.fxml-gets contr
+			controller.setSeller(obj);
+			controller.setServices(new SellerService(), new DepartmentService());
 			controller.subscribeDataChangeListener(this);
+			controller.loadAssociatedObjects();
 			controller.updateFormData();
 
-			// create a new stage to load DepartmentForm dialog box
+			// create a new stage to load SellerForm dialog box
 			Stage dialogStage = new Stage();
 			// config stage
-			dialogStage.setTitle("Enter Department data");
+			dialogStage.setTitle("Enter Seller data");
 			dialogStage.setScene(new Scene(pane));// pane is the parent of the new scene
 			dialogStage.setResizable(false);
 			dialogStage.initOwner(parentStage);// establish the parent so it locks the window
@@ -134,20 +141,19 @@ public class DepartmentListController implements Initializable, DataChangeListen
 		}
 
 	}
-
+	
 	@Override
 	public void onDataChanged() {
 		updateTableView();
 	}
-
-	// framework specific method for creating an element inside a cell
+	
 	private void initEditButtons() {
 		tableColumnEdit.setCellValueFactory(param -> new ReadOnlyObjectWrapper<>(param.getValue()));
-		tableColumnEdit.setCellFactory(param -> new TableCell<Department, Department>() {
+		tableColumnEdit.setCellFactory(param -> new TableCell<Seller, Seller>() {
 			private final Button button = new Button("edit");
 
 			@Override
-			protected void updateItem(Department obj, boolean empty) {
+			protected void updateItem(Seller obj, boolean empty) {
 				super.updateItem(obj, empty);
 				if (obj == null) {
 					setGraphic(null);
@@ -155,18 +161,18 @@ public class DepartmentListController implements Initializable, DataChangeListen
 				}
 				setGraphic(button);
 				button.setOnAction(
-						event -> createDialogForm(obj, "/gui/DepartmentForm.fxml", Utils.currentStage(event)));
+						event -> createDialogForm(obj, "/gui/SellerForm.fxml", Utils.currentStage(event)));
 			}
 		});
 	}
 
 	private void initRemoveButtons() {
 		tableColumnRemove.setCellValueFactory(param -> new ReadOnlyObjectWrapper<>(param.getValue()));
-		tableColumnRemove.setCellFactory(param -> new TableCell<Department, Department>() {
+		tableColumnRemove.setCellFactory(param -> new TableCell<Seller, Seller>() {
 			private final Button button = new Button("remove");
 
 			@Override
-			protected void updateItem(Department obj, boolean empty) {
+			protected void updateItem(Seller obj, boolean empty) {
 				super.updateItem(obj, empty);
 				if (obj == null) {
 					setGraphic(null);
@@ -178,9 +184,9 @@ public class DepartmentListController implements Initializable, DataChangeListen
 		});
 	}
 
-	private void removeEntity(Department obj) {
-		Optional<ButtonType> confirmation = Alerts.showConfirmation("Department deletion",
-				"Are you sure you want to delete this department?");
+	private void removeEntity(Seller obj) {
+		Optional<ButtonType> confirmation = Alerts.showConfirmation("Seller deletion",
+				"Are you sure you want to delete this seller?");
 		if (confirmation.get() == ButtonType.OK) {
 			if (service == null)
 				throw new IllegalStateException("Service not instantiated.");
@@ -188,7 +194,7 @@ public class DepartmentListController implements Initializable, DataChangeListen
 				service.remove(obj);
 				updateTableView();
 			} catch (DbIntegrityException e) {
-				Alerts.showAlert("Error removing department", null, e.getMessage(), AlertType.ERROR);
+				Alerts.showAlert("Error removing seller", null, e.getMessage(), AlertType.ERROR);
 			}
 		}
 	}
